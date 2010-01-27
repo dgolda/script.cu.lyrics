@@ -49,36 +49,35 @@ class LyricsFetcher:
         
 
     def lyricwiki_format(self, text):
-		return urllib.quote(str(unicode(text).title()))
-	
-    def lyricwiki_quote(self, text):
-		return urllib.quote(str(unicode(text)))	
+        # Test cases
+        #     I've
+        titleCase =lambda value: re.sub("([a-zA-Z]')([A-Z])", lambda m: m.group(0) + m.group(1).lower(), value.title())
+        return urllib.quote(str(unicode(titleCase(text))))	
 
-    def get_lyrics_thread(self, artist, title,quote):
-		try:
-			if quote:
-				song_search = urllib.urlopen("http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_format(artist), self.lyricwiki_format(title))).read()
-			else:
-				song_search = urllib.urlopen("http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_quote(artist), self.lyricwiki_quote(title))).read()
-			song_title = song_search.split("<title>")[1].split("</title>")[0]
-			song_clean_title = self.unescape(song_title.replace(" Lyrics - LyricWiki - Music lyrics from songs and albums",""))
-			print "Title:[" + song_clean_title+"]"
-			lyricpage = urllib.urlopen("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),)).read()
-			print ("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),))
-			
-			content = re.split("<textarea[^>]*>", lyricpage)[1].split("</textarea>")[0]
-			if content.startswith("#REDIRECT [["):
-				addr = "http://lyricwiki.org/index.php?title=%s&action=edit" % urllib.quote(content.split("[[")[1].split("]]")[0])
-			        content = urllib.urlopen(addr).read()
-			try:
-				lyrics = content.split("&lt;lyrics&gt;")[1].split("&lt;/lyrics&gt;")[0]
-			except:
-				lyrics = content.split("&lt;lyric&gt;")[1].split("&lt;/lyric&gt;")[0]
-			return lyrics
-
-		except:
-			error = "Fetching lyrics failed"
-			return error      
+    def get_lyrics_thread(self, artist, title):
+        try:
+            url = "http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_format(artist), self.lyricwiki_format(title))
+            song_search = urllib.urlopen(url).read()
+            if song_search.find("Click here to start this page!") >= 0:
+                print "No lyrics found"
+                return None, "Lyrics not found for song '%s' by '%s'" % (title, artist) 
+            
+            song_title = song_search.split("<title>")[1].split("</title>")[0]
+            song_clean_title = self.unescape(song_title.replace(" Lyrics - LyricWiki - Music lyrics from songs and albums",""))
+            print "Title:[" + song_clean_title+"]"
+            lyricpage = urllib.urlopen("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),)).read()
+            print ("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),))
+            content = re.split("<textarea[^>]*>", lyricpage)[1].split("</textarea>")[0]
+            if content.startswith("#REDIRECT [["):
+                addr = "http://lyricwiki.org/index.php?title=%s&action=edit" % urllib.quote(content.split("[[")[1].split("]]")[0])
+                content = urllib.urlopen(addr).read()
+            try:
+                lyricText = content.split("&lt;lyrics&gt;")[1].split("&lt;/lyrics&gt;")[0]
+            except:
+                lyricText = content.split("&lt;lyric&gt;")[1].split("&lt;/lyric&gt;")[0]
+            return lyricText.strip(), None
+        except:
+            return None, "Fetching lyrics from %s failed" % (__title__)
         
     def get_lyrics( self, artist, song ):
         """ *required: Returns song lyrics or a list of choices from artist & song """
