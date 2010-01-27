@@ -5,11 +5,11 @@ import xbmc
 
 # Script constants 
 __scriptname__ = "CU Lyrics"
-__author__ = "Amet"
+__author__ = "Amet, ZorMonkey"
 __url__ = "http://xbmc.org/forum/showthread.php?p=449687"
 __svn_url__ = ""
 __credits__ = "EnderW,Nuka1195"
-__version__ = "0.7.6"
+__version__ = "0.7.7"
 __XBMC_Revision__ = "22240"
 __svn_revision__ = 0
 

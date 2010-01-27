@@ -23,11 +23,12 @@
     <title>CU Lyrics</title>
 
     <!-- (required) Major.minor.build -->
-    <version>0.7.6</version>
+    <version>0.7.7</version>
 
     <!-- (required) author name & email.  at least one author name is required -->
     <authors>
         <author name="Amet" email="amet1977@gmail.com" />
+        <author name="ZorMonkey" email="jjbott@gmail.com" />
     </authors>
 
     <!-- (required) Short description of addon. -->
