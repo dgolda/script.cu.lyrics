@@ -61,8 +61,8 @@ class LyricsFetcher:
             lyr = xmldoc.getElementsByTagName("sg")[0]
             Nodes = lyr.getElementsByTagName("tx")[0].firstChild.data          
             lyrics1 = Nodes.replace("[br]","\n")
-            print str(lyrics1)
-            print str(Nodes)
+            #print str(lyrics1)
+            #print str(Nodes)
             l.lyrics = lyrics1
             l.source = __title__ 
             return l, None            
