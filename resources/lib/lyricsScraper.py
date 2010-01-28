@@ -3,13 +3,15 @@ import sys
 import os
 import urllib
 import re
+from utilities import *
+from song import *
+import lyrics
 
 if ( __name__ != "__main__" ):
     import xbmc
 
 __title__ = "LyricWiki.org API"
 __allow_exceptions__ = True
-
 
 class XmlUtils :
     def getText (self, nodeParent, childName ):
@@ -35,50 +37,52 @@ class LyricsFetcher:
         
         
     def get_lyrics_start(self, *args):
-		lyricThread = threading.Thread(target=self.get_lyrics_thread, args=args)
-		lyricThread.setDaemon(True)
-		lyricThread.start()
-
-    def unescape(self,s):
-        s = s.replace("&lt;", "<")
-        s = s.replace("&quot;", '"')
-        s = s.replace("&apos;", "'")
-        s = s.replace("&gt;", ">")
-        s = s.replace("&amp;", "&")
-        return s       
-        
-
+        lyricThread = threading.Thread(target=self.get_lyrics_thread, args=args)
+        lyricThread.setDaemon(True)
+        lyricThread.start()
+    
     def lyricwiki_format(self, text):
         # Test cases
         #     I've
         titleCase =lambda value: re.sub("([a-zA-Z]')([A-Z])", lambda m: m.group(0) + m.group(1).lower(), value.title())
-        return urllib.quote(str(unicode(titleCase(text))))	
-
-    def get_lyrics_thread(self, artist, title):
+        return urllib.quote(str(unicode(titleCase(text))))
+    
+    def get_lyrics_thread(self, song):
+        print "SCRAPER-DEBUG: LyricsFetcher.get_lyrics_thread %s" % (song)
+        l = lyrics.Lyrics()
+        l.song = song
         try:
-            url = "http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_format(artist), self.lyricwiki_format(title))
+            url = "http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_format(song.artist), self.lyricwiki_format(song.title))
             song_search = urllib.urlopen(url).read()
             if song_search.find("Click here to start this page!") >= 0:
-                print "No lyrics found"
-                return None, "Lyrics not found for song '%s' by '%s'" % (title, artist) 
+                return None, "Lyrics not found for song '%s' by '%s'" % (song.title, song.artist) 
             
             song_title = song_search.split("<title>")[1].split("</title>")[0]
-            song_clean_title = self.unescape(song_title.replace(" Lyrics - LyricWiki - Music lyrics from songs and albums",""))
+            song_clean_title = unescape(song_title.replace(" Lyrics - LyricWiki - Music lyrics from songs and albums",""))
             print "Title:[" + song_clean_title+"]"
             lyricpage = urllib.urlopen("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),)).read()
             print ("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),))
             content = re.split("<textarea[^>]*>", lyricpage)[1].split("</textarea>")[0]
+            
+            if ( content.find("{{Disambig}}") >= 0 ):
+                return None, "'%s' by '%s' matches multiple lyric pages" % (song.title, song.artist)
+            
             if content.startswith("#REDIRECT [["):
                 addr = "http://lyricwiki.org/index.php?title=%s&action=edit" % urllib.quote(content.split("[[")[1].split("]]")[0])
                 content = urllib.urlopen(addr).read()
+                
             try:
                 lyricText = content.split("&lt;lyrics&gt;")[1].split("&lt;/lyrics&gt;")[0]
             except:
                 lyricText = content.split("&lt;lyric&gt;")[1].split("&lt;/lyric&gt;")[0]
-            return lyricText.strip(), None
+            lyricText = unescape(lyricText.strip())
+            l.lyrics = lyricText
+            l.source = __title__
+            return l, None            
         except:
-            return None, "Fetching lyrics from %s failed" % (__title__)
-        
+            print "%s::%s (%d) [%s]" % ( self.__class__.__name__, sys.exc_info()[ 2 ].tb_frame.f_code.co_name, sys.exc_info()[ 2 ].tb_lineno, sys.exc_info()[ 1 ])
+            return None, "Fetching lyrics from %s failed" % (__title__)      
+
     def get_lyrics( self, artist, song ):
         """ *required: Returns song lyrics or a list of choices from artist & song """
         # format artist and song, check for exceptions
@@ -114,7 +118,7 @@ class LyricsFetcher:
         if ( exception is not None ):
             self.exceptions[ exception[ 0 ] ] = exception[ 1 ]
             self._save_exception_file( ex_path, self.exceptions )
-
+    
     def _save_exception_file( self, ex_path, exceptions ):
         """ Saves the exception file as a repr(dict) """
         try:
@@ -156,7 +160,7 @@ class LyricsFetcher:
             print str(resultDoc)
 #           xmlUtils  = XmlUtils() 
 #            result1    = xmlUtils.getText(resultDoc, "div class='lyricbox'")
-            print str(result1)          
+            
             # Save htmlSource to a file for testing scraper (if debugWrite)
             if ( debugWrite ):
                 file_object = open( os.path.join( os.getcwd(), "lyrics_source.txt" ), "w" )
@@ -201,7 +205,7 @@ class LyricsFetcher:
             return song_list
         except:
             return None
-
+    
     def _format_param( self, param, exception=True ):
         """ Converts param to the form expected by www.lyricwiki.org """
         # properly quote string for url
@@ -214,4 +218,3 @@ class LyricsFetcher:
 # used for testing only
 debug = False
 debugWrite = False
-

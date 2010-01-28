@@ -6,6 +6,9 @@ import xbmcgui
 import unicodedata
 import urllib
 import traceback
+import inspect
+from song import *
+from lyrics import *
 from utilities import *
 __settings__ = xbmc.Settings( path=os.getcwd() )
 
@@ -31,6 +34,9 @@ MOVEMENT_DOWN = ( 167, 271, 61480, )
 class GUI( xbmcgui.WindowXMLDialog ):
     def __init__( self, *args, **kwargs ):
         xbmcgui.WindowXMLDialog.__init__( self )
+        self.fetchedLyrics = []
+        self.current_song = Song()
+        self.current_file = ""
 
     def onInit( self ):
         self.setup_all()
@@ -71,127 +77,121 @@ class GUI( xbmcgui.WindowXMLDialog ):
         except:
             self.setFocus( self.getControl( controlId ) )
 
-    def get_lyrics(self, artist1, song1, show):
-        if show:
-            self.reset_controls()
-            self.getControl( 100 ).setText( "" )
-            self.getControl( 200 ).setLabel( "" )
-        
-        self.menu_items = []
-        self.allow_exception = False
-        artist2 = unicode(artist1, 'utf-8')				# de-accent Search String
-        artist = unicodedata.normalize('NFKD', unicode(artist2)).encode('ascii','ignore')
-        song2 = unicode(song1, 'utf-8')				# de-accent Search String
-        song = unicodedata.normalize('NFKD', unicode(song2)).encode('ascii','ignore')
-        lyrics = ""
-        current_song = self.song
-        lyrics, kind = self.get_lyrics_from_file( artist, song, show )
-        
-        if show :
-            if ( lyrics != "" ):
-                if ( current_song == self.song ):
-                    self.show_lyrics( lyrics )
-                    self.getControl( 200 ).setEnabled( False )
-                    self.getControl( 200 ).setLabel( "File" )
-            else:
-                self.getControl( 200 ).setEnabled( True )
-                self.getControl( 200 ).setLabel( "LyricWiki API" )
-                        
-                lyrics, error = self.LyricsScraper.get_lyrics_thread( artist, song)
+    def get_lyrics(self, song):
+        try:
+            lyrics, error = self.get_lyrics_from_memory( song )
+            
+            if (lyrics is None ):
+                lyrics, error = self.get_lyrics_from_file( song )
+            
+            if ( lyrics is None ):
+                lyrics, error = self.LyricsScraper.get_lyrics_thread( song )
                 
-                if ( error is None and (current_song == self.song) ):
-                    self.show_lyrics( lyrics, True )
-        else:
-            if ( len(lyrics) > 100):
-                
-                print "Next Lyrics Already Exist"
-            else:
-                lyrics, error = self.LyricsScraper.get_lyrics_thread( artist, song )
-                if ( error is None):
-                    success = self.save_lyrics_to_file( lyrics )
-                    print "Next Lyrics Saved"                
+                if ( lyrics is not None ):
+                    try:
+                        self.save_lyrics(lyrics)
+                    except:
+                        pass
+            
+            return lyrics, error
+        except:
+            print traceback.format_exc(sys.exc_info()[2])
+            return None, "Failed fetching lyrics"
 
     def get_lyrics_from_list( self, item ):
         lyrics = self.LyricsScraper.get_lyrics_from_list( self.menu_items[ item ] )
         self.show_lyrics( lyrics, True )
 
-    def get_lyrics_from_file( self, artist, song, embeded ):
+    def get_lyrics_from_memory (self, song):
+        for l in self.fetchedLyrics:
+            if ( l.song == song ):
+                return l, None
+        return None, "Could not find song in memory"
+
+    def get_lyrics_from_file( self, song):
+        lyrics = Lyrics()
+        lyrics.song = song
         try:
-            xbmc.sleep( 60 )
-            if ( xbmc.getInfoLabel( "MusicPlayer.Lyrics" ) and embeded):
-                return unicode( xbmc.getInfoLabel( "MusicPlayer.Lyrics" ), "utf-8" ), True
-            self.song_path = make_legal_filepath( unicode( os.path.join( self.settings[ "lyrics_path" ], artist.replace( "\\", "_" ).replace( "/", "_" ), song.replace( "\\", "_" ).replace( "/", "_" ) + ( "", ".txt", )[ self.settings[ "use_extension" ] ] ), "utf-8" ), self.settings[ "compatible" ], self.settings[ "use_extension" ] )
-            lyrics_file = open( self.song_path, "r" )
-            lyrics = lyrics_file.read()
+            lyrics_file = open( song.path(), "r" )
+            lyrics.lyrics = unicode(lyrics_file.read(), "utf-8" )
+            lyrics.source = "File"
             lyrics_file.close()
-            return unicode( lyrics, "utf-8" ), False
+            self.save_lyrics_to_memory(lyrics)
+            return lyrics, None
         except IOError:
-            lyr = ""
-            return lyr, False
+            return None, IOError
+
+    def save_lyrics(self, lyrics):
+        self.save_lyrics_to_memory(lyrics)
+        self.save_lyrics_to_file(lyrics)
+
+    def save_lyrics_to_memory (self, lyrics):
+        savedLyrics, error = self.get_lyrics_from_memory(lyrics.song)
+        if ( savedLyrics is None ):
+            self.fetchedLyrics.append(lyrics)
+            self.fetchedLyrics =  self.fetchedLyrics[:10]
 
     def save_lyrics_to_file( self, lyrics ):
+        if ( __settings__.getSetting( "save_lyrics" ) ):
+            try:
+                if ( not os.path.isdir( os.path.dirname( lyrics.song.path() ) ) ):
+                    os.makedirs( os.path.dirname( lyrics.song.path() ) )
+                lyrics_file = open( lyrics.song.path(), "w" )
+                lyrics_file.write( lyrics.lyrics )
+                lyrics_file.close()
+                return True
+            except IOError:
+                LOG( LOG_ERROR, "%s (rev: %s) %s::%s (%d) [%s]", __scriptname__, __svn_revision__, self.__class__.__name__, sys.exc_info()[ 2 ].tb_frame.f_code.co_name, sys.exc_info()[ 2 ].tb_lineno, sys.exc_info()[ 1 ], )
+                return False
+    
+    def focus_lyrics(self):
+        if ( __settings__.getSetting( "smooth_scrolling" ) ):
+            self.show_control( 110 )
+        else:
+            self.show_control( 100 )
+
+    def show_error(self, error):
         try:
-            if ( not os.path.isdir( os.path.dirname( self.song_path ) ) ):
-                os.makedirs( os.path.dirname( self.song_path ) )
-            lyrics_file = open( self.song_path, "w" )
-            lyrics_file.write( lyrics )
-            lyrics_file.close()
-            return True
-        except IOError:
-            LOG( LOG_ERROR, "%s (rev: %s) %s::%s (%d) [%s]", __scriptname__, __svn_revision__, self.__class__.__name__, sys.exc_info()[ 2 ].tb_frame.f_code.co_name, sys.exc_info()[ 2 ].tb_lineno, sys.exc_info()[ 1 ], )
-            return False
-
-    def unescape(self,s):
-        s = s.replace("&lt;", "<")
-        s = s.replace("&quot;", '"')
-        s = s.replace("&apos;", "'")
-        s = s.replace("&gt;", ">")
-        s = s.replace("&amp;", "&")
-        return s
-
+            self.getControl( 100 ).setText( error )
+            self.show_control( 100 )
+        except:
+            print "%s::%s (%d) [%s]" % ( self.__class__.__name__, sys.exc_info()[ 2 ].tb_frame.f_code.co_name, sys.exc_info()[ 2 ].tb_lineno, sys.exc_info()[ 1 ])
+            print traceback.format_exc(sys.exc_info()[2])
     
-    
-    def show_lyrics( self, lyrics1, save=False ):
+    def show_lyrics( self, lyrics):
+        print "1"
         try:
             xbmcgui.lock()
-            lyrics = self.unescape(lyrics1)
-            if ( lyrics == "" ):
-                self.getControl( 100 ).setText( _( 632 ) )
-                self.getControl( 110 ).addItem( _( 632 ) )
-            else:
-                if (len(lyrics) < 100 and lyrics.find("{{Instrumental}}")):
-                    lyrics = lyrics.replace("{","")
-                    lyrics = lyrics.replace("}","")
-                    self.getControl( 100 ).setText( lyrics )
-                    lyrics1 = lyrics.splitlines()
-                    for x in lyrics1:
-                        self.getControl( 110 ).addItem( x )
-                    save = True                		
+            self.reset_controls()
+            self.getControl( 100 ).setText( "" )
+            self.getControl( 200 ).setLabel( "" )
+            self.menu_items = []
+            self.allow_exception = False
+            if ( self.current_song == lyrics.song ):
+                lyricsText = lyrics.lyrics
+                if (lyricsText == "{{Instrumental}}"):
+                    lyricsText = "Instrumental"
                 
-                if ((len(lyrics) < 100) and (lyrics.find("{{Instrumental}}") < 1)):
-                    self.getControl( 100 ).setText( "No lyrics have been found for ' %s '" % (self.song)  )
-                    save = False
-                if (len(lyrics) > 100):	
-                    self.getControl( 100 ).setText( lyrics )
-                    lyrics1 = lyrics.splitlines()
-                    for x in lyrics1:
-     	                self.getControl( 110 ).addItem( x )
+                self.getControl( 100 ).setText( lyricsText )
+                splitLyrics = lyricsText.splitlines()
+                for x in splitLyrics:
+                    self.getControl( 110 ).addItem( x )
+                
                 self.getControl( 110 ).selectItem( 0 )
                 
-                if ( __settings__.getSetting( "save_lyrics" ) == "true" and save ): success = self.save_lyrics_to_file( lyrics )
-            self.show_control( 100 + ( int(__settings__.getSetting( "smooth_scrolling" ) == "true") * 10 ) )
+                self.focus_lyrics()
+                
+                self.getControl( 200 ).setEnabled( False )
+                self.getControl( 200 ).setLabel( lyrics.source )
             
-            next_artist = xbmc.getInfoLabel( "MusicPlayer.offset(1).Artist" )
-            next_song = xbmc.getInfoLabel( "MusicPlayer.offset(1).Title" )
-            print "Next Artist: " + next_artist
-            print "Next Song: " + next_song
-            if ( next_song and  next_artist ):
-                self.get_lyrics( next_artist, next_song, False )
-            else:
-                print "Missing Artist or Song name in ID3 tag for next track"	
         finally:
             xbmcgui.unlock()
 
+    def show_prefetch_message(self, song):
+        self.reset_controls()
+        self.getControl( 100 ).setText( "Fetching lyrics..." )
+        self.show_control( 100 )
+    
     def show_choices( self, choices ):
         xbmcgui.lock()
         for song in choices:
@@ -204,6 +204,7 @@ class GUI( xbmcgui.WindowXMLDialog ):
         self.getControl( 100 ).reset()
         self.getControl( 110 ).reset()
         self.getControl( 120 ).reset()
+        self.getControl( 200 ).setLabel( "" )
         
 
     def get_exception( self ):
@@ -225,11 +226,7 @@ class GUI( xbmcgui.WindowXMLDialog ):
             self.get_lyrics_from_list( self.getControl( 120 ).getSelectedPosition() )
 
     def onFocus( self, controlId ):
-
         self.controlId = controlId
-
-
-
 
     def get_artist_from_filename( self, filename ):
         try:
@@ -259,25 +256,52 @@ class GUI( xbmcgui.WindowXMLDialog ):
         self.myPlayerChanged( 2 )
 
     def myPlayerChanged( self, event, force_update=False ):
-        LOG( LOG_DEBUG, "%s (rev: %s) GUI::myPlayerChanged [%s]", __scriptname__, __svn_revision__, [ "stopped","ended","started" ][ event ] )
-        if ( event < 2 ): 
-            self.exit_script()
-        else:
-            for cnt in range( 5 ):
-                song = xbmc.getInfoLabel( "MusicPlayer.Title" )
-                print "Song: " + song
-                artist = xbmc.getInfoLabel( "MusicPlayer.Artist" )
-                print "Artist: " + artist                
-                if ( song and  not artist ):
-                    artist, song = self.get_artist_from_filename( xbmc.Player().getPlayingFile() )
-                if ( song and ( self.song != song or self.artist != artist or force_update ) ):
-                    self.artist = artist
-                    self.song = song
-                    self.get_lyrics( artist, song, True )
-                    break
-                xbmc.sleep( 50 )
-
-
+        try:
+            print "GUI-DEBUG: myPlayerChanged event:%s, force_update:%s" % (event, force_update)
+            LOG( LOG_DEBUG, "%s (rev: %s) GUI::myPlayerChanged [%s]", __scriptname__, __svn_revision__, [ "stopped","ended","started" ][ event ] )
+            if ( event < 2 ):
+                self.exit_script()
+            else:
+                # If we're here, we know that the song may have changed 
+                # from what is stored in self.current_song. 
+                # It is also possible that the current song has NOT changed.
+                # Use xbmc.Player().getPlayingFile() to determine 
+                # if we need to do anything
+                playing_file = xbmc.Player().getPlayingFile()
+                if ( self.current_file != playing_file ):
+                    self.current_file = playing_file
+                    
+                    # Unfortunately, calls to xbmc.getInfoLabel may return 
+                    # information about the previous song for a while after
+                    # the song has changed. Loop until it returns something new.
+                    # We know that this won't loop forever since we know that the
+                    # current file has changed (the previous "if")
+                    song = Song.current()
+                    print "Current: %s" % (self.current_song)
+                    print "song: %s" % (self.song)
+                    while ( song is not None 
+                            and self.current_song is not None 
+                            and self.current_song == song ):
+                        xbmc.sleep( 50 )
+                        song = Song.current()
+                    
+                    if ( song and ( self.current_song != song or force_update ) ):
+                        self.current_song = song
+                        self.show_prefetch_message(song)
+                        lyrics, error = self.get_lyrics( song )
+                        if ( lyrics is not None ):
+                            self.show_lyrics(lyrics)
+                        else:
+                            self.show_error(error)
+                    
+                    next_song = Song.next()
+                    if ( next_song ):
+                        self.get_lyrics( next_song )
+                    else:
+                        print "Missing Artist or Song name in ID3 tag for next track"
+        except:
+            print "%s::%s (%d) [%s]" % ( self.__class__.__name__, sys.exc_info()[ 2 ].tb_frame.f_code.co_name, sys.exc_info()[ 2 ].tb_lineno, sys.exc_info()[ 1 ])
+            print traceback.format_exc(sys.exc_info()[2])
 
 ## Thanks Thor918 for this class ##
 class MyPlayer( xbmc.Player ):
@@ -300,6 +324,7 @@ class MyPlayer( xbmc.Player ):
         try:
             self.function( 2 )
         except:
+            print "%s::%s (%d) [%s]" % ( self.__class__.__name__, sys.exc_info()[ 2 ].tb_frame.f_code.co_name, sys.exc_info()[ 2 ].tb_lineno, sys.exc_info()[ 1 ])
             print traceback.format_exc(sys.exc_info()[2])
 
 def onAction( self, action ):

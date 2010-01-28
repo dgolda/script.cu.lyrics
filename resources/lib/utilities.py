@@ -3,6 +3,7 @@ import sys
 import os
 import xbmc
 import xbmcgui
+import unicodedata
 
 DEBUG_MODE = 0
 
@@ -55,10 +56,10 @@ def get_keyboard( default="", heading="", hidden=False ):
 
 def get_numeric_dialog( default="", heading="", dlg_type=3 ):
     """ shows a numeric dialog and returns a value
-        - 0 : ShowAndGetNumber		(default format: #)
-        - 1 : ShowAndGetDate			(default format: DD/MM/YYYY)
-        - 2 : ShowAndGetTime			(default format: HH:MM)
-        - 3 : ShowAndGetIPAddress	(default format: #.#.#.#)
+        - 0 : ShowAndGetNumber        (default format: #)
+        - 1 : ShowAndGetDate            (default format: DD/MM/YYYY)
+        - 2 : ShowAndGetTime            (default format: HH:MM)
+        - 3 : ShowAndGetIPAddress    (default format: #.#.#.#)
     """
     dialog = xbmcgui.Dialog()
     value = dialog.numeric( type, heading, default )
@@ -109,6 +110,16 @@ def make_legal_filepath( path, compatible=False, extension=True ):
     else:
         return filepath
 
+def unescape(s):
+    s = s.replace("&lt;", "<")
+    s = s.replace("&quot;", '"')
+    s = s.replace("&apos;", "'")
+    s = s.replace("&gt;", ">")
+    s = s.replace("&amp;", "&")
+    return s
+
+def deAccent(str):
+    return unicodedata.normalize('NFKD', unicode(unicode(str, 'utf-8'))).encode('ascii','ignore')
 
 class Settings:
     """ Settings class """
