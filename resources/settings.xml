@@ -8,5 +8,4 @@
     <setting type="lsep" label="Settings" />
     <setting id="smooth_scrolling" type="bool" label="Smooth Scrolling" default="false"/>
     <setting id="save_lyrics" type="bool" label="Save Lyrics" default="true"/>
-    <setting id="scraper" type="enum" label="Scraper" default="1" values="lyricsfly.com|LyricWiki.org" />
 </settings>

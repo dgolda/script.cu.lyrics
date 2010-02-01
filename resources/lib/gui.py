@@ -52,14 +52,7 @@ class GUI( xbmcgui.WindowXMLDialog ):
         self.settings = Settings().get_settings()
         
     def get_scraper( self ):
-        if int(__settings__.getSetting( "scraper" )) == 0:
-          import lyricsflyScraper as lyricsScraper
-          print "Scraper: lyricsfly.com"
-        else:
-          import lyricsScraper as lyricsScraper
-          print "Scraper: lyricsWiki.org"
-
-        
+        import lyricsScraper as lyricsScraper        
         self.LyricsScraper = lyricsScraper.LyricsFetcher()
         self.scraper_title = lyricsScraper.__title__
         self.scraper_exceptions = lyricsScraper.__allow_exceptions__
