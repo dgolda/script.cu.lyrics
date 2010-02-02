@@ -44,7 +44,7 @@ class LyricsFetcher:
     def lyricwiki_format(self, text):
         # Test cases
         #     I've
-        titleCase =lambda value: re.sub("([a-zA-Z]')([A-Z])", lambda m: m.group(0) + m.group(1).lower(), value.title())
+        titleCase =lambda value: re.sub("([a-zA-Z]')([A-Z])", lambda m: m.group(1) + m.group(2).lower(), value.title())
         return urllib.quote(str(unicode(titleCase(text))))
     
     def get_lyrics_thread(self, song):
@@ -53,6 +53,7 @@ class LyricsFetcher:
         l.song = song
         try:
             url = "http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_format(song.artist), self.lyricwiki_format(song.title))
+            print "Search url: %s" % (url)
             song_search = urllib.urlopen(url).read()
             if song_search.find("Click here to start this page!") >= 0:
                 return None, "Lyrics not found for song '%s' by '%s'" % (song.title, song.artist) 
