@@ -13,6 +13,100 @@ if ( __name__ != "__main__" ):
 __title__ = "LyricWiki.org API"
 __allow_exceptions__ = True
 
+class WikiaFormat:
+    @staticmethod
+    def __condense_strings(parseList):
+        while(True):
+            if ( len(parseList) < 2 
+                 or not isinstance(parseList[-1], basestring)
+                 or not isinstance(parseList[-2], basestring) ):
+                return parseList
+            lastStr = parseList[-1]
+            parseList.pop()
+            for i in range(len(parseList)-1, -1, -1):
+                if ( isinstance(parseList[i], basestring) ):
+                    lastStr = parseList[i] + lastStr
+                    parseList.pop()
+                else:
+                    parseList.append(lastStr)
+                    return parseList
+            parseList.append(lastStr)
+    
+    @staticmethod
+    def __parse_stack(parseList):
+        while(True):
+            if ( len(parseList) < 3 
+                 or isinstance(parseList[-1], basestring)
+                 or not isinstance(parseList[-2], basestring)
+                 or isinstance(parseList[-3], basestring) ):
+                return parseList
+            
+            beginTags = {2:'[I]', 3:'[B]', 5:'[I][B]'}
+            endTags = {2:'[/I]', 3:'[/B]', 5:'[/I][/B]'}
+            
+            begin = parseList[-3]
+            str = parseList[-2]
+            end = parseList[-1]
+            if ( begin == end ):
+                parseList = parseList[:-3]
+                if ( str ):
+                    parseList.append(beginTags[begin] + str + endTags[end])
+            elif ( begin == 5 ):
+                parseList = parseList[:-3]
+                begin = 5-end
+                parseList.append(begin)
+                if ( str ):
+                    parseList.append(beginTags[end] + str + endTags[end])
+            elif ( end == 5 ):
+                parseList = parseList[:-3]
+                end = 5-begin
+                if ( str ):
+                    parseList.append(beginTags[begin] + str + endTags[begin])
+                parseList.append(end)
+            else:
+                return parseList
+    
+    @staticmethod
+    def __push_stack(q, str, stack):
+        if ( q >= 5 ):
+            stack.append(5)
+            q -= 5
+        elif ( q >= 3 ):
+            stack.append(3)
+            q -= 3
+        elif ( q >= 2 ):
+            stack.append(2)
+            q -= 2
+        stack = WikiaFormat.__parse_stack(stack)
+        str = "'"*q + str
+        q = 0
+        if ( str ):
+           stack.append(str)
+        WikiaFormat.__condense_strings(stack)
+        return stack
+    
+    @staticmethod
+    def to_xbmc_format(s):
+        t = s.split("'")
+        numQuotes = 0
+        stack = []
+        for line in t:
+            if (line):
+                stack = WikiaFormat.__push_stack(numQuotes, line, stack)
+                numQuotes = 1
+            else:
+                numQuotes += 1
+        if ( numQuotes > 1 ):
+            stack = WikiaFormat.__push_stack(numQuotes, "", stack)
+        
+        #Take care of any unclosed tags
+        if ( not isinstance(stack[-1], basestring) ):
+            stack.append("")
+        stack = WikiaFormat.__push_stack(5, "", stack)
+        if ( not isinstance(stack[-1], basestring) ):
+            stack.pop()
+        return str.join("", stack)
+
 class XmlUtils :
     def getText (self, nodeParent, childName ):
         # Get child node...
@@ -26,6 +120,15 @@ class XmlUtils :
         for child in node.childNodes:
             if child.nodeType == child.TEXT_NODE :
                 text = text + child.data
+        return text
+    
+    @staticmethod
+    def removeComments(text):
+        begin = text.split("<!--")
+        if ( len(begin) > 1 ):
+            end = str.join("", begin[1:]).split("-->")
+            if ( len(end) > 1 ):
+                return XmlUtils.removeComments(begin[0] + str.join("", end[1:]))
         return text
 
 
@@ -55,9 +158,6 @@ class LyricsFetcher:
             url = "http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_format(song.artist), self.lyricwiki_format(song.title))
             print "Search url: %s" % (url)
             song_search = urllib.urlopen(url).read()
-            if song_search.find("Click here to start this page!") >= 0:
-                return None, "Lyrics not found for song '%s' by '%s'" % (song.title, song.artist) 
-            
             song_title = song_search.split("<title>")[1].split("</title>")[0]
             song_clean_title = unescape(song_title.replace(" Lyrics - LyricWiki - Music lyrics from songs and albums",""))
             print "Title:[" + song_clean_title+"]"
@@ -76,7 +176,14 @@ class LyricsFetcher:
                 lyricText = content.split("&lt;lyrics&gt;")[1].split("&lt;/lyrics&gt;")[0]
             except:
                 lyricText = content.split("&lt;lyric&gt;")[1].split("&lt;/lyric&gt;")[0]
-            lyricText = unescape(lyricText.strip())
+            lyricText = WikiaFormat.to_xbmc_format(unescape(lyricText.strip()))
+            lyricText = lyricText.replace("{{gracenote_takedown}}", "[Lyrics removed by GraceNote]")
+            lyricText = lyricText.replace("{{Instrumental}}", u"\u266B" + " Instrumental " + u"\u266B")
+            
+            lyricText = XmlUtils.removeComments(lyricText)
+            if ( not lyricText ):
+                return None, "Lyrics not found for song '%s' by '%s'" % (song.title, song.artist) 
+            
             l.lyrics = lyricText
             l.source = __title__
             return l, None            

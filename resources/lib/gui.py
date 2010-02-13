@@ -159,7 +159,6 @@ class GUI( xbmcgui.WindowXMLDialog ):
             print traceback.format_exc(sys.exc_info()[2])
     
     def show_lyrics( self, lyrics):
-        print "1"
         try:
             xbmcgui.lock()
             self.reset_controls()
@@ -171,7 +170,6 @@ class GUI( xbmcgui.WindowXMLDialog ):
                 lyricsText = lyrics.lyrics
                 if (lyricsText == "{{Instrumental}}"):
                     lyricsText = "Instrumental"
-                
                 self.getControl( 100 ).setText( lyricsText )
                 splitLyrics = lyricsText.splitlines()
                 for x in splitLyrics:
