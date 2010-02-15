@@ -132,12 +132,12 @@ class GUI( xbmcgui.WindowXMLDialog ):
             self.fetchedLyrics =  self.fetchedLyrics[:10]
 
     def save_lyrics_to_file( self, lyrics ):
-        if ( __settings__.getSetting( "save_lyrics" ) ):
+        if ( __settings__.getSetting( "save_lyrics" ) == 'true' ):
             try:
                 if ( not os.path.isdir( os.path.dirname( lyrics.song.path() ) ) ):
                     os.makedirs( os.path.dirname( lyrics.song.path() ) )
                 lyrics_file = open( lyrics.song.path(), "w" )
-                lyrics_file.write( lyrics.lyrics )
+                lyrics_file.write( lyrics.lyrics.encode("utf-8") )
                 lyrics_file.close()
                 return True
             except IOError:
@@ -260,12 +260,19 @@ class GUI( xbmcgui.WindowXMLDialog ):
             if ( event < 2 ):
                 self.exit_script()
             else:
+                # The logic described below still has holes in it.
+                # Mostly, xbmc.Player().getPlayingFile() does NOT
+                # always change before we get here. Until I get something
+                # better coded, I'm leaving this. 
+                #
                 # If we're here, we know that the song may have changed 
                 # from what is stored in self.current_song. 
                 # It is also possible that the current song has NOT changed.
                 # Use xbmc.Player().getPlayingFile() to determine 
                 # if we need to do anything
                 playing_file = xbmc.Player().getPlayingFile()
+                print "self.current_file: %s" % (self.current_file)
+                print "playing_file: %s" % (playing_file)
                 if ( self.current_file != playing_file ):
                     self.current_file = playing_file
                     
@@ -277,9 +284,12 @@ class GUI( xbmcgui.WindowXMLDialog ):
                     song = Song.current()
                     print "Current: %s" % (self.current_song)
                     print "song: %s" % (self.song)
+                    i = 0
                     while ( song is not None 
                             and self.current_song is not None 
-                            and self.current_song == song ):
+                            and self.current_song == song
+                            and i < 50 ):
+                        i += 1
                         xbmc.sleep( 50 )
                         song = Song.current()
                     

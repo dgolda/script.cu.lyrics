@@ -9,7 +9,7 @@ __author__ = "Amet, ZorMonkey"
 __url__ = "http://xbmc.org/forum/showthread.php?p=449687"
 __svn_url__ = ""
 __credits__ = "EnderW,Nuka1195"
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 __XBMC_Revision__ = "22240"
 __svn_revision__ = 0
 

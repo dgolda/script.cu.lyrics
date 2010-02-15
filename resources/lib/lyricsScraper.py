@@ -176,6 +176,7 @@ class LyricsFetcher:
                 lyricText = content.split("&lt;lyrics&gt;")[1].split("&lt;/lyrics&gt;")[0]
             except:
                 lyricText = content.split("&lt;lyric&gt;")[1].split("&lt;/lyric&gt;")[0]
+            lyricText = unicode(lyricText, 'utf8')
             lyricText = WikiaFormat.to_xbmc_format(unescape(lyricText.strip()))
             lyricText = lyricText.replace("{{gracenote_takedown}}", "[Lyrics removed by GraceNote]")
             lyricText = lyricText.replace("{{Instrumental}}", u"\u266B" + " Instrumental " + u"\u266B")
