@@ -3,14 +3,14 @@ import sys
 import os
 import urllib
 import re
+import xbmc
 from utilities import *
 from song import *
 import lyrics
 
-if ( __name__ != "__main__" ):
-    import xbmc
 
-__title__ = "LyricWiki.org API"
+__language__ = sys.modules[ "__main__" ].__language__
+__title__ = __language__(30003)
 __allow_exceptions__ = True
 
 class WikiaFormat:
@@ -155,14 +155,12 @@ class LyricsFetcher:
         l = lyrics.Lyrics()
         l.song = song
         try:
-            url = "http://lyricwiki.org/index.php?title=%s:%s&fmt=js" % (self.lyricwiki_format(song.artist), self.lyricwiki_format(song.title))
+            url = "http://lyrics.wikia.com/api.php?artist=%s&song=%s&fmt=xml" % (urllib.quote(song.artist.lower()), urllib.quote(song.title.lower()), )
             print "Search url: %s" % (url)
             song_search = urllib.urlopen(url).read()
-            song_title = song_search.split("<title>")[1].split("</title>")[0]
-            song_clean_title = unescape(song_title.replace(" Lyrics - LyricWiki - Music lyrics from songs and albums",""))
-            print "Title:[" + song_clean_title+"]"
-            lyricpage = urllib.urlopen("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),)).read()
-            print ("http://lyricwiki.org/index.php?title=%s&action=edit" % (urllib.quote(song_clean_title),))
+            song_title = song_search.split("<url>http://lyrics.wikia.com/")[1].split("</url>")[0]
+            print "Title:[" + song_title+"]"
+            lyricpage = urllib.urlopen("http://lyricwiki.org/index.php?title=%s&action=edit" % (song_title,)).read()
             content = re.split("<textarea[^>]*>", lyricpage)[1].split("</textarea>")[0]
             
             if ( content.find("{{Disambig}}") >= 0 ):
@@ -183,14 +181,14 @@ class LyricsFetcher:
             
             lyricText = XmlUtils.removeComments(lyricText)
             if ( not lyricText ):
-                return None, "Lyrics not found for song '%s' by '%s'" % (song.title, song.artist) 
+                return None, __language__(30002) % (song.title, song.artist) 
             
             l.lyrics = lyricText
             l.source = __title__
             return l, None            
         except:
             print "%s::%s (%d) [%s]" % ( self.__class__.__name__, sys.exc_info()[ 2 ].tb_frame.f_code.co_name, sys.exc_info()[ 2 ].tb_lineno, sys.exc_info()[ 1 ])
-            return None, "Fetching lyrics from %s failed" % (__title__)      
+            return None, __language__(30004) % (__title__)      
 
     def get_lyrics( self, artist, song ):
         """ *required: Returns song lyrics or a list of choices from artist & song """
