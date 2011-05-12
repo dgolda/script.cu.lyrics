@@ -1,3 +1,8 @@
+2.0.0
+- fork for Eden
+- changed: "xbmc.python" version="1.0" to "2.0"
+- removed: lyricswiki, just not worth it 
+
 1.0.2
 - fixed: decode Lyricsmode and Lyricstime pages using 'decode("ISO-8859-1")', thx Anssi
 
