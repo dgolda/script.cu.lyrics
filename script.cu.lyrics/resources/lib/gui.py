@@ -11,25 +11,11 @@ from song import *
 from lyrics import *
 from utilities import *
 
-try:
-    current_dlg_id = xbmcgui.getCurrentWindowDialogId()
-except:
-    current_dlg_id = 0
-current_win_id = xbmcgui.getCurrentWindowId()
-
 __scriptname__ = sys.modules[ "__main__" ].__scriptname__
 __version__    = sys.modules[ "__main__" ].__version__
 __settings__   = sys.modules[ "__main__" ].__settings__
 __language__   = sys.modules[ "__main__" ].__language__
 __cwd__        = sys.modules[ "__main__" ].__cwd__
-
-SELECT_ITEM = ( 11, 256, 61453, )
-EXIT_SCRIPT = ( 6, 10, 247, 275, 61467, 216, 257, 61448, )
-CANCEL_DIALOG = EXIT_SCRIPT + ( 216, 257, 61448, )
-GET_EXCEPTION = ( 216, 260, 61448, )
-SELECT_BUTTON = ( 229, 259, 261, 61453, )
-MOVEMENT_UP = ( 166, 270, 61478, )
-MOVEMENT_DOWN = ( 167, 271, 61480, )
 
 class GUI( xbmcgui.WindowXMLDialog ):
     def __init__( self, *args, **kwargs ):
@@ -220,7 +206,6 @@ class GUI( xbmcgui.WindowXMLDialog ):
 
     def exit_script( self, restart=False ):
         self.close()
-        if ( restart ): xbmc.executebuiltin( "XBMC.RunScript(%s)" % ( os.path.join( __cwd__, "default.py" ), ) )
 
     def onClick( self, controlId ):
         if ( controlId == 120 ):
@@ -235,7 +220,6 @@ class GUI( xbmcgui.WindowXMLDialog ):
 
     def myPlayerChanged( self, event, force_update=False ):
         try:
-            print "GUI-DEBUG: myPlayerChanged event:%s, force_update:%s" % (event, force_update)
             LOG( LOG_DEBUG, "%s (rev: %s) GUI::myPlayerChanged [%s]", __scriptname__, [ "stopped","ended","started" ][ event ] )
             if ( event < 2 ):
                 self.exit_script()
@@ -330,6 +314,7 @@ class MyPlayer( xbmc.Player ):
             print traceback.format_exc(sys.exc_info()[2])
 
 def onAction( self, action ):
-    actionId = action.getId()
     if ( action.getButtonCode() in CANCEL_DIALOG ):
         self.exit_script()
+        
+        
