@@ -1,3 +1,6 @@
+2.0.3
+- clean lyrics before saving
+
 2.0.2
 - remove xbmcgui.lock() and xbmcgui.unlock()
 
