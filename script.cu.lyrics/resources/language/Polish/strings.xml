@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<strings>
+    <!-- Labels -->
+    <string id="0">CU Lyrics</string>
+    <string id="30000">Pobieranie tekstów</string>
+    <string id="30001">Błąd przy pobieraniu tekstów</string>
+    <string id="30002">Nie znaleziono tekstu dla piosenki '%s', wykonawca: '%s'</string>
+    <string id="30003">LyricWiki.org API</string>
+    <string id="30004">Nieudane pobieranie tekstu z %s</string>
+    <string id="30005">Plik</string>
+    <string id="30006">Lyricsmode.com API</string>
+    <string id="30007">Lyricstime.com API</string>
+    <string id="30031">Tekstowo.pl API</string>
+    <string id="30032">Tekst nie znaleziony ('%s')</string>
+
+    <!-- Settings -->
+    <string id="30100">Płynne przewijanie</string>
+    <string id="30101">Zapisuj teksty</string>
+    <string id="30102">Ustawienia</string>
+    <string id="30103">Info</string>
+    <string id="30104">Wersja</string>
+    <string id="30105">Autor</string>
+    <string id="30106">Autorzy oryginału</string>
+    <string id="30107">Użyj wbudowanych tekstów</string>
+    <string id="30108"> - Zapisz wbudowane teksty do pliku</string>
+    <string id="30109">Wybierz Scraper</string>
+
+</strings>
