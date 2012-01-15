@@ -148,53 +148,63 @@ class LyricsFetcher:
         print "SCRAPER-DEBUG-lyricstime: LyricsFetcher.get_lyrics_thread %s" % (song)
         l = lyrics.Lyrics()
         l.song = song
-        try: # below is borowed from XBMC Lyrics
-            url = "http://www.tekstowo.pl/piosenka,%s,%s.html" % (song.artist.lower().replace(" ","_").replace(",","_"), song.title.lower().replace(" ","_").replace(",","_"), )
-            url = url.replace("__","_")
-            print "TEKSTOWO: get url: %s" % (url)
-            song_search = urllib.urlopen(url).read()
-            print "TEKSTOWO: html: %s" % (song_search)
-            if ( song_search.find("404 - Nie ma takiego pliku") >= 0):
-                print "TEKSTOWO: 404 for: %s" % (url)
-                url = "http://www.tekstowo.pl/szukaj,wykonawca,%s,tytul,%s.html" % (song.artist.lower().replace(" ","+").replace(",","+"), song.title.lower().replace(" ","+").replace(",","+"), )
-                print "TEKSTOWO: search url: %s" % (url)
-                #http://www.tekstowo.pl/szukaj,wykonawca,budka+suflera,tytul,zostan+jeszcze.html
-                song_search = urllib.urlopen(url).read()
-                print "TEKSTOWO: Search html: %s" % (song_search)
-                #<h2>Znalezione utwory:</h2>
-                lyr = song_search.split('<h2>Znalezione utwory:</h2>')[1]    
-                print "TEKSTOWO: lyr: %s" % (lyr)
-                lyr = lyr.split('<div class="box-przeboje">')[1].split('</div>')[0] 
-                print "TEKSTOWO: lyr: %s" % (lyr)
-                url = lyr.split('href="')[1].split('"')[0] 
-                print "TEKSTOWO: first hit url: %s" % (url)
-                url = "http://www.tekstowo.pl" + url
-                print "TEKSTOWO: first hit url: %s" % (url)
+        try: # first try direct url
+            direct_url = "http://www.tekstowo.pl/piosenka,%s,%s.html" % (song.artist.lower().replace(" ","_").replace(",","_"), song.title.lower().replace(" ","_").replace(",","_"), )
+            direct_url = direct_url.replace("__","_")
+            print "TEKSTOWO: try direct url: %s" % (direct_url)
+            song_html = urllib.urlopen(direct_url).read()
+            #print "TEKSTOWO: html: %s" % (song_html)
+            if ( song_html.find("404 - Nie ma takiego pliku") >= 0):
+                print "TEKSTOWO: 404 for: %s" % (song_html)
+                # direct url miss, so perform search
+                # example url for artist "Budka Suflera" and title "Zostañ jeszcze" is: 
+                # http://www.tekstowo.pl/szukaj,wykonawca,budka+suflera,tytul,zostan+jeszcze.html
+                search_url = "http://www.tekstowo.pl/szukaj,wykonawca,%s,tytul,%s.html" % (song.artist.lower().replace(" ","+").replace(",","+"), song.title.lower().replace(" ","+").replace(",","+"), )
+                print "TEKSTOWO: search url: %s" % (search_url)
+                search_html = urllib.urlopen(search_url).read()
+                #print "TEKSTOWO: Search html: %s" % (search_html)
+                # look for search results - example response is: 
+                # <h2>Znalezione utwory:</h2>
                 #<div class="box-przeboje">
                 #<b>1.</b>
                 #<a class="title" title="Budka Suflera - Zostañ Jeszcze" href="/piosenka,budka_suflera,zosta__jeszcze.html">Budka Suflera - Zostañ Jeszcze </a>
                 #<b class="icon_kamera" title="teledysk"></b>
                 #</div>
-                song_search = urllib.urlopen(url).read()
-                if ( song_search.find("404 - Nie ma takiego pliku") >= 0):
+                first_search_result = search_html.split('<h2>Znalezione utwory:</h2>')[1]    
+                #print "TEKSTOWO: first_search_result: %s" % (first_search_result)
+                first_search_result = first_search_result.split('<div class="box-przeboje">')[1].split('</div>')[0] 
+                #print "TEKSTOWO: first_search_result: %s" % (first_search_result)
+                # get relative url to first hit
+                first_hit_relative_url = first_search_result.split('href="')[1].split('"')[0] 
+                #print "TEKSTOWO: first hit relative url: %s" % (first_hit_relative_url)
+                # first hit absolute url
+                first_hit_absolute_url = "http://www.tekstowo.pl" + first_hit_relative_url
+                print "TEKSTOWO: first hit url: %s" % (first_hit_absolute_url)
+                song_html = urllib.urlopen(first_hit_absolute_url).read()
+                if ( song_html.find("404 - Nie ma takiego pliku") >= 0):
                     return None, __language__(30032) % (url)      
                 
-            print "TEKSTOWO: No 404 found: %s" % (url)
-            lyr = song_search.split('<div class="song-text">')[1].split('</div>')[0]     
-            print "TEKSTOWO: lyr: %s" % (lyr)
+            lyr = song_html.split('<div class="song-text">')[1].split('</div>')[0]     
             lyr = lyr.replace("Tekst piosenki:","")
             lyr = lyr.split('<p>&nbsp;</p>')[0]
+            # sometimes search gets unexpected results, so get artist and title for found song
+            artist_and_title = song_html.split('<div class="belka short">')[1]     
+            print "TEKSTOWO: artist_and_title: %s" % (artist_and_title)
+            artist_and_title = artist_and_title.split('<strong')[1].split('</strong>')[0].split('>')[1]     
+            artist = artist_and_title.split("-")[0].strip()
+            title = artist_and_title.split("-")[1].strip()
+            # find translated lyrics 
             #<div id="translation"
-            transl = song_search.split('<div id="translation"')[1].split('">')[1].split('</div>')[0].split('<p>&nbsp;</p>')[0] 
-            print "TEKSTOWO: transl: %s" % (transl)
-            lyr = lyr  + "<br/>* * *<br/>" + transl
-            lyr = self.clean_br_regex.sub( "\n", lyr ).strip()
-            lyr = self.clean_lyrics_regex.sub( "", lyr ).strip()
-            lyr = self.normalize_lyrics_regex.sub( lambda m: unichr( int( m.group( 1 ) ) ), lyr.decode("UTF-8") )
-            lyr = u"\n".join( [ lyric.strip() for lyric in lyr.splitlines() ] )
-            lyr = self.clean_info_regex.sub( "", lyr )     
-            #print "TEKSTOWO: lyr clean: %s" % (lyr)
-            l.lyrics = lyr
+            translation = song_html.split('<div id="translation"')[1].split('">')[1].split('</div>')[0].split('<p>&nbsp;</p>')[0] 
+            #print "TEKSTOWO: transl: %s" % (transl)
+            result = lyr  + "<br/>"+"tekstowo.pl<br/>"+artist+"<br/>" + title + "<br/>* * *<br/>" + translation
+            result = self.clean_br_regex.sub( "\n", result ).strip()
+            result = self.clean_lyrics_regex.sub( "", result ).strip()
+            result = self.normalize_lyrics_regex.sub( lambda m: unichr( int( m.group( 1 ) ) ), result.decode("UTF-8") )
+            result = u"\n".join( [ lyric.strip() for lyric in result.splitlines() ] )
+            result = self.clean_info_regex.sub( "", result )     
+            #print "TEKSTOWO: result clean: %s" % (result)
+            l.lyrics = result
             l.source = __title__
             return l, None            
         except:
